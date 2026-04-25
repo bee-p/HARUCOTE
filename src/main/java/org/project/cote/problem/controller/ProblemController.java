@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/problems")
+@RequestMapping("/api/v1/problems")
 @RequiredArgsConstructor
 public class ProblemController {
 

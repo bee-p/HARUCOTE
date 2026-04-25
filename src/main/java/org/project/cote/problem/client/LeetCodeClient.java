@@ -70,6 +70,8 @@ public class LeetCodeClient {
                     .retrieve()
                     .body(ProblemListResponse.class);
 
+            failIfErrors(response == null ? null : response.errors(), "문제 목록");
+
             if (response == null || response.data() == null
                     || response.data().problemsetQuestionList() == null) {
                 throw new ApiException(ErrorCode.PROBLEM_FETCH_FAILED);
@@ -97,7 +99,12 @@ public class LeetCodeClient {
                     .retrieve()
                     .body(ProblemDetailResponse.class);
 
-            if (response == null || response.data() == null || response.data().question() == null) {
+            failIfErrors(response == null ? null : response.errors(), "문제 상세 [" + titleSlug + "]");
+
+            if (response == null || response.data() == null) {
+                throw new ApiException(ErrorCode.PROBLEM_FETCH_FAILED);
+            }
+            if (response.data().question() == null) {
                 throw new ApiException(ErrorCode.PROBLEM_NOT_FOUND);
             }
 
@@ -110,10 +117,19 @@ public class LeetCodeClient {
         }
     }
 
+    private void failIfErrors(List<GraphQLError> errors, String context) {
+        if (errors == null || errors.isEmpty()) {
+            return;
+        }
+        String first = errors.get(0).message();
+        log.warn("LeetCode GraphQL 오류 ({}): {}", context, first);
+        throw new ApiException(ErrorCode.PROBLEM_FETCH_FAILED);
+    }
+
     // Response records
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record ProblemListResponse(ProblemListData data) {}
+    public record ProblemListResponse(ProblemListData data, List<GraphQLError> errors) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ProblemListData(
@@ -127,10 +143,13 @@ public class LeetCodeClient {
     public record QuestionSummary(String title, String titleSlug, String difficulty) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record ProblemDetailResponse(ProblemDetailData data) {}
+    public record ProblemDetailResponse(ProblemDetailData data, List<GraphQLError> errors) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ProblemDetailData(QuestionDetail question) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record GraphQLError(String message) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record QuestionDetail(
