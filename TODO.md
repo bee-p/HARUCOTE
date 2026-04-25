@@ -9,24 +9,28 @@
 - [x] PostgreSQL 연동 설정
 - [x] SQL 쿼리 로깅 설정
 - [x] 도메인별 패키지 구조 생성 (user / problem / submission / challenge / pet / item / common)
-- [ ] `.gitignore` 점검 (IDE, 빌드 산출물, 환경변수)
-- [ ] Git 저장소 초기화 및 첫 커밋
-- [ ] `common/exception/GlobalExceptionHandler` 작성
-- [ ] `common/dto/ApiResponse` 공통 응답 포맷 정의
-- [ ] `application-local.yml` / `application-prod.yml` 프로파일 분리
-- [ ] 민감정보(DB 비밀번호 등) 환경변수로 분리
+- [x] `.gitignore` 점검 (IDE, 빌드 산출물, 환경변수)
+- [x] Git 저장소 초기화 및 첫 커밋
+- [x] `common/exception/GlobalExceptionHandler` 작성
+- [x] `common/dto/ApiResponse` 공통 응답 포맷 정의
 
 ---
 
 ## Phase 1. User 도메인 (인증/인가)
 
-- [ ] `User` 엔티티 설계 (id, email, nickname, 가입일 등)
-- [ ] `UserRepository` 작성
+- [x] `User` 엔티티 설계 (id, email, nickname, 가입일 등)
+- [x] `UserRepository` 작성
 - [ ] Spring Security 기본 설정
 - [ ] OAuth2 로그인 연동 (GitHub 또는 Google)
-- [ ] JWT 발급/검증 로직
+- [x] `application-local.yml` / `application-prod.yml` 프로파일 분리
+- [x] 민감정보(OAuth2 client-secret, DB 비밀번호 등) 환경변수로 분리
+- [x] JWT 발급/검증 로직 (access token, 15분 TTL)
+- [ ] Refresh token 도입: `RefreshToken` 엔티티 + 회전(rotation) + 폐기(로그아웃/기기 분실 대응)
+- [ ] `/api/v1/auth/refresh`, `/api/v1/auth/logout` API
 - [ ] 회원가입 / 로그인 / 내 정보 조회 API
-- [ ] 인증 필터 테스트
+- [x] 인증 필터 테스트
+- [x] 모든 컨트롤러 `/api/v1` prefix 적용 (현재 `ProblemController` 적용 완료, 신규 컨트롤러도 동일 규칙)
+- [ ] springdoc-openapi 도입 → OpenAPI 명세 자동 생성 (데스크탑 앱 타입 안전)
 
 ---
 
@@ -53,6 +57,10 @@
 - [ ] `@Scheduled` 배치 작성 (주 1회 신규 문제 수집)
 - [ ] 수집 로그 기록
 - [ ] 초기 전체 문제 수동 트리거 API (`POST /admin/problems/sync`)
+- [x] LeetCode RestClient 타임아웃 (connect 5s / read 10s)
+- [x] LeetCode GraphQL 오류(`errors`) 분리 처리 (404 오분류 방지)
+- [ ] LeetCode RestClient 재시도 정책 (`spring-retry` 또는 자체) — 일시 장애 회복
+- [ ] 문제 상세 응답 캐시 (Caffeine 등) — 데스크탑 UX 흔들림 방지
 
 ### 2-3. AI 문제 생성 (추후)
 
@@ -109,25 +117,20 @@
 ## Phase 7. 데스크탑 펫 연동
 
 - [ ] 데스크탑 앱 기술 선정 (Electron / Tauri / Unity 등)
-- [ ] 데스크탑 앱 ↔ 서버 인증 방식 (API 토큰 등)
+- [ ] **OAuth2 로그인 흐름 (RFC 8252 준수)**
+  - 시스템 브라우저로 백엔드 OAuth 시작 URL 진입 (웹뷰 임베드 금지)
+  - 백엔드가 GitHub OAuth 처리
+  - 백엔드 → `http://127.0.0.1:<loopback-port>/oauth/callback` 으로 토큰 redirect
+  - 데스크탑 앱이 임시 loopback HTTP 서버에서 토큰 수신
+  - 만약 데스크탑이 GitHub과 직접 통신하는 모델로 전환할 경우 PKCE 필수
+- [ ] 데스크탑 앱 ↔ 서버 인증: 발급받은 access/refresh JWT 를 헤더로 사용 + 자동 갱신
 - [ ] 펫 상태 동기화 API 정의
 - [ ] 해금 알림 전달 방식 결정 (Polling / WebSocket / SSE)
 - [ ] 데스크탑 앱 프로토타입
 
 ---
 
-## Phase 8. 프론트엔드 (웹)
-
-- [ ] 프론트엔드 기술 선정 (React / Vue / Thymeleaf 등)
-- [ ] 문제 목록 / 상세 페이지
-- [ ] 코드 에디터 (Monaco Editor 등)
-- [ ] 제출 결과 표시
-- [ ] 내 도전과제 진행 상황 화면
-- [ ] 내 아이템 / 펫 미리보기 화면
-
----
-
-## Phase 9. 테스트 & 품질
+## Phase 8. 테스트 & 품질
 
 - [ ] 각 도메인 Service 단위 테스트
 - [ ] Repository 테스트 (`@DataJpaTest`)
@@ -137,7 +140,7 @@
 
 ---
 
-## Phase 10. 배포 / 마무리
+## Phase 9. 배포 / 마무리
 
 - [ ] Dockerfile 작성
 - [ ] docker-compose (앱 + PostgreSQL)
