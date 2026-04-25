@@ -161,6 +161,7 @@ replay_pid*
 
 HELP.md
 .gradle
+.gradle-user/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
