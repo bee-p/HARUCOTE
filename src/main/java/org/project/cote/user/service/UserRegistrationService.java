@@ -64,9 +64,7 @@ public class UserRegistrationService {
                     User.create(info.provider(), info.providerId(), email, nickname, profileImageUrl)
             );
         } catch (DataIntegrityViolationException e) {
-            log.warn("OAuth2 가입 시 동시성 충돌 (provider={}, providerId={})",
-                    info.provider(), info.providerId(), e);
-            throw new ApiException(ErrorCode.NICKNAME_ALREADY_TAKEN);
+            return resolveConflict(info, e);
         }
 
         log.info("신규 사용자 가입: id={}, provider={}, nickname={}",
@@ -76,6 +74,26 @@ public class UserRegistrationService {
                 new UserRegisteredEvent(created.getId(), created.getProvider(), created.getProviderId())
         );
         return created;
+    }
+
+    /**
+     * 동시성 충돌 처리:
+     * - (provider, providerId) 충돌이면 다른 트랜잭션이 같은 사용자를 이미 가입시킨 것이므로
+     *   기존 사용자를 반환 (JIT 멱등성). 이벤트는 원본 트랜잭션이 발행했으므로 중복 발행 안 함.
+     * - 그 외 (nickname 충돌 등) 면 NICKNAME_ALREADY_TAKEN 으로 매핑.
+     */
+    private User resolveConflict(OAuth2UserInfo info, DataIntegrityViolationException e) {
+        return userRepository.findByProviderAndProviderId(info.provider(), info.providerId())
+                .map(existing -> {
+                    log.info("OAuth2 동시 가입 충돌 (provider={}, providerId={}) — 기존 사용자 반환 id={}",
+                            info.provider(), info.providerId(), existing.getId());
+                    return existing;
+                })
+                .orElseThrow(() -> {
+                    log.warn("OAuth2 가입 충돌, (provider, providerId) 재조회 실패 → 닉네임 충돌로 매핑 (provider={}, providerId={})",
+                            info.provider(), info.providerId(), e);
+                    return new ApiException(ErrorCode.NICKNAME_ALREADY_TAKEN);
+                });
     }
 
     private String sanitizeNicknameHint(String hint) {

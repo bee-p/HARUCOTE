@@ -13,6 +13,7 @@ import org.project.cote.user.domain.User;
 import org.project.cote.user.event.UserRegisteredEvent;
 import org.project.cote.user.repository.UserRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
@@ -93,6 +94,41 @@ class UserRegistrationServiceTest {
         assertEquals(ErrorCode.OAUTH2_PROVIDER_ERROR, ex.getErrorCode());
         verify(userRepository, never()).findByProviderAndProviderId(any(), any());
         verify(userRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("동시 가입 race 로 (provider, providerId) 충돌 시 기존 사용자를 반환하고 이벤트는 발행하지 않는다")
+    void concurrentRegistration_returnsExistingUser_idempotent() {
+        User raceWinner = withId(User.create(AuthProvider.GITHUB, "12345", null, "octocat", null), 11L);
+        // 1차 조회: 없음 (둘 다 가입 시도). save 시점에 unique 위반.
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GITHUB, "12345"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(raceWinner));
+        when(userRepository.existsByNickname("octocat")).thenReturn(false);
+        when(userRepository.save(any(User.class)))
+                .thenThrow(new DataIntegrityViolationException("uk_users_provider_provider_id"));
+
+        User result = service.upsertFromOAuth2(githubInfo(12345L, "octocat", null));
+
+        assertSame(raceWinner, result);
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("닉네임 race 로 인한 충돌(재조회로도 못 찾음)은 NICKNAME_ALREADY_TAKEN 으로 매핑한다")
+    void concurrentRegistration_nicknameRaceFallsBackToNicknameTaken() {
+        when(userRepository.findByProviderAndProviderId(AuthProvider.GITHUB, "12345"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty());
+        when(userRepository.existsByNickname("octocat")).thenReturn(false);
+        when(userRepository.save(any(User.class)))
+                .thenThrow(new DataIntegrityViolationException("uk_users_nickname"));
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> service.upsertFromOAuth2(githubInfo(12345L, "octocat", null)));
+
+        assertEquals(ErrorCode.NICKNAME_ALREADY_TAKEN, ex.getErrorCode());
         verify(eventPublisher, never()).publishEvent(any());
     }
 

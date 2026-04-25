@@ -1,5 +1,7 @@
 package org.project.cote.common.security.oauth2;
 
+import jakarta.servlet.http.HttpSession;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.lang.reflect.Field;
 import java.net.URLDecoder;
@@ -21,6 +24,7 @@ import java.time.ZoneOffset;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OAuth2SuccessHandlerTest {
@@ -37,6 +41,11 @@ class OAuth2SuccessHandlerTest {
         tokenProvider = new JwtTokenProvider(new JwtProperties(SECRET, 900, "harucote-test"), clock);
         OAuth2Properties props = new OAuth2Properties(REDIRECT_URI);
         handler = new OAuth2SuccessHandler(tokenProvider, props);
+    }
+
+    @AfterEach
+    void clearAuth() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -61,6 +70,27 @@ class OAuth2SuccessHandlerTest {
         JwtTokenProvider.AuthClaims claims = tokenProvider.parse(token);
         assertEquals(7L, claims.userId());
         assertEquals(user.getRole(), claims.role());
+    }
+
+    @Test
+    @DisplayName("성공 시 기존 세션을 폐기하고 SecurityContext 도 비운다 (이후 요청은 Bearer JWT 만 유효)")
+    void onSuccess_invalidatesSessionAndClearsContext() throws Exception {
+        User user = withId(User.create(AuthProvider.GITHUB, "12345", null, "octocat", null), 7L);
+        OAuth2UserPrincipal principal = OAuth2UserPrincipal.from(user, Map.of("id", "12345"));
+        Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        HttpSession existingSession = request.getSession(true);
+        String sessionId = existingSession.getId();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(request, response, auth);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication(),
+                "성공 후 SecurityContext 가 비어 있어야 함");
+        assertTrue(((org.springframework.mock.web.MockHttpSession) existingSession).isInvalid(),
+                "기존 세션 [" + sessionId + "] 이 invalidate 되어야 함");
     }
 
     private static User withId(User user, long id) {

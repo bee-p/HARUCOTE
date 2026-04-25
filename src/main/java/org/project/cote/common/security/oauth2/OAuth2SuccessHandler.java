@@ -2,12 +2,14 @@ package org.project.cote.common.security.oauth2;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.project.cote.common.dto.ErrorCode;
 import org.project.cote.common.exception.ApiException;
 import org.project.cote.common.security.jwt.JwtTokenProvider;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -20,6 +22,10 @@ import java.nio.charset.StandardCharsets;
  * OAuth2 인증 성공 시 자체 JWT 를 발급해 redirect URI 의 fragment 에 담아 클라이언트로 보낸다.
  * Fragment(#) 는 서버 액세스 로그/Referer 에 남지 않으므로 query string 보다 안전.
  * 클라이언트는 location.hash 에서 토큰을 추출 후 history.replaceState 로 즉시 정리해야 한다.
+ *
+ * <p>OAuth2 dance 가 끝난 시점에 세션을 폐기해 이후 모든 요청이 Bearer JWT 만으로 인증되도록 강제한다.
+ * (잔존 세션 + OAuth2UserPrincipal 이 컨트롤러의 {@code @AuthenticationPrincipal AuthenticatedUser}
+ * 와 타입 불일치를 일으켜 NPE 로 터지는 사고 방지.)</p>
  */
 @Slf4j
 @Component
@@ -38,9 +44,19 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String token = tokenProvider.createAccessToken(principal.userId(), principal.role());
         String target = buildRedirectTarget(token);
 
+        clearAuthState(request);
+
         // target 변수에는 토큰 fragment 가 포함되어 있다. 절대 로그에 출력하지 말 것.
         log.info("OAuth2 로그인 성공: userId={}", principal.userId());
         getRedirectStrategy().sendRedirect(request, response, target);
+    }
+
+    private void clearAuthState(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        SecurityContextHolder.clearContext();
     }
 
     private OAuth2UserPrincipal extractPrincipal(Authentication authentication) {
