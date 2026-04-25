@@ -17,10 +17,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleApiException(ApiException e) {
-        log.warn("ApiException: {}", e.getMessage());
+        // 상세 메시지는 로그에만 남기고 응답 본문에는 ErrorCode 의 정적 메시지만 노출 (정보 누출 방지)
+        log.warn("ApiException [{}]: {}", e.getErrorCode().name(), e.getMessage());
         return ResponseEntity
                 .status(e.getErrorCode().getStatus())
-                .body(ApiResponse.fail(e.getErrorCode(), e.getMessage()));
+                .body(ApiResponse.fail(e.getErrorCode()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

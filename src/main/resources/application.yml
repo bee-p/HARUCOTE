@@ -6,10 +6,19 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
+server:
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
+
+# 시크릿/콜백 default 는 정의하지 않는다. 환경변수로만 주입 (시크릿 누수 방지).
+# 로컬은 IDE Run Configuration 또는 .env 로 JWT_SECRET, OAUTH2_REDIRECT_URI 를 주입.
 app:
   jwt:
     secret: ${JWT_SECRET}
     access-ttl-seconds: ${JWT_ACCESS_TTL:900}
     issuer: harucote
   oauth2:
-    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth/callback}
+    redirect-uri: ${OAUTH2_REDIRECT_URI}

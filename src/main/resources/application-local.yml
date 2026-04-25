@@ -27,6 +27,5 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
 
-app:
-  jwt:
-    secret: ${JWT_SECRET:local-dev-secret-please-change-this-to-a-long-enough-random-string-min-256-bits}
+# app.jwt.secret, app.oauth2.redirect-uri 는 application.yml 에서 환경변수로만 주입.
+# 로컬에서도 명시적으로 JWT_SECRET, OAUTH2_REDIRECT_URI 를 주입해야 부팅 가능.
