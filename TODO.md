@@ -20,17 +20,20 @@
 
 - [x] `User` 엔티티 설계 (id, email, nickname, 가입일 등)
 - [x] `UserRepository` 작성
-- [ ] Spring Security 기본 설정
-- [ ] OAuth2 로그인 연동 (GitHub 또는 Google)
+- [x] Spring Security 기본 설정 (STATELESS-style, JWT 필터 + EntryPoint 와이어링)
+- [x] OAuth2 로그인 연동 (GitHub) — JIT 자동가입, 닉네임 충돌 시 `#1234` suffix, `UserRegisteredEvent` 발행
 - [x] `application-local.yml` / `application-prod.yml` 프로파일 분리
 - [x] 민감정보(OAuth2 client-secret, DB 비밀번호 등) 환경변수로 분리
 - [x] JWT 발급/검증 로직 (access token, 15분 TTL)
 - [ ] Refresh token 도입: `RefreshToken` 엔티티 + 회전(rotation) + 폐기(로그아웃/기기 분실 대응)
 - [ ] `/api/v1/auth/refresh`, `/api/v1/auth/logout` API
-- [ ] 회원가입 / 로그인 / 내 정보 조회 API
-- [x] 인증 필터 테스트
-- [x] 모든 컨트롤러 `/api/v1` prefix 적용 (현재 `ProblemController` 적용 완료, 신규 컨트롤러도 동일 규칙)
+- [x] 내 정보 조회 / 닉네임 변경 API (`GET /api/v1/users/me`, `PATCH /api/v1/users/me/nickname`) — 회원가입은 OAuth2 JIT 으로 대체
+- [x] 인증 필터 테스트 + 인증 흐름 통합 테스트
+- [x] 모든 컨트롤러 `/api/v1` prefix 적용
 - [ ] springdoc-openapi 도입 → OpenAPI 명세 자동 생성 (데스크탑 앱 타입 안전)
+- [ ] JWT `audience` 클레임 + parser `requireAudience` 강제 (cross-service replay 방지)
+- [ ] SecurityFilterChain 분리: `/oauth2/**`, `/login/oauth2/**` 만 `IF_REQUIRED` 세션, 그 외는 `STATELESS` (`@Order` 두 체인)
+- [ ] 로그/응답에서 토큰 누출 방지 logback masking + 회귀 테스트 (`OAuth2SuccessHandler` 의 fragment 가 로그에 안 들어가는지 단언)
 
 ---
 
@@ -137,6 +140,7 @@
 - [ ] Controller 통합 테스트 (`@SpringBootTest`)
 - [ ] 이벤트 체인 통합 테스트 (문제풀이 → 도전과제 → 아이템 해금)
 - [ ] Security 관련 테스트
+- [ ] Rate limiting (OAuth 진입점, 닉네임 변경, /me 등) — bucket4j 또는 reverse proxy
 
 ---
 
