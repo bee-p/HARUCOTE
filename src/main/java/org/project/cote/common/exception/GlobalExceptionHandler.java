@@ -4,9 +4,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.project.cote.common.dto.ApiResponse;
 import org.project.cote.common.dto.ErrorCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
 @RestControllerAdvice
@@ -28,9 +31,27 @@ public class GlobalExceptionHandler {
                 .orElse(ErrorCode.INVALID_REQUEST.getMessage());
 
         log.warn("Validation failed: {}", message);
-        return ResponseEntity
-                .status(ErrorCode.INVALID_REQUEST.getStatus())
-                .body(ApiResponse.fail(ErrorCode.INVALID_REQUEST, message));
+        return badRequest(message);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        String message = "%s: 허용되지 않은 값 '%s'".formatted(e.getName(), e.getValue());
+        log.warn("Type mismatch: {}", message);
+        return badRequest(message);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParameter(MissingServletRequestParameterException e) {
+        String message = "%s 파라미터가 누락되었습니다.".formatted(e.getParameterName());
+        log.warn("Missing parameter: {}", message);
+        return badRequest(message);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("Malformed request body: {}", e.getMessage());
+        return badRequest("요청 본문을 해석할 수 없습니다.");
     }
 
     @ExceptionHandler(Exception.class)
@@ -39,5 +60,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(ErrorCode.INTERNAL_SERVER_ERROR.getStatus())
                 .body(ApiResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR));
+    }
+
+    private ResponseEntity<ApiResponse<Void>> badRequest(String message) {
+        return ResponseEntity
+                .status(ErrorCode.INVALID_REQUEST.getStatus())
+                .body(ApiResponse.fail(ErrorCode.INVALID_REQUEST, message));
     }
 }
